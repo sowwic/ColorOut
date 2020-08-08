@@ -10,5 +10,41 @@
         "bold": 0,
         "italic": 0,
         "font_name": "Courier New"
+    },
+    "debug": {
+        "fg_color": [
+            135,
+            206,
+            250
+        ],
+        "pattern": "^(#|//).*(debug|DEBUG).+$",
+        "bg_color": [],
+        "bold": 0,
+        "italic": 0,
+        "font_name": "Courier New"
+    },
+    "warning": {
+        "fg_color": [
+            255,
+            175,
+            44
+        ],
+        "pattern": "^(#|//).*(warning|WARNING|Warning).+$",
+        "bg_color": [],
+        "bold": 0,
+        "italic": 0,
+        "font_name": "Courier New"
+    },
+    "error": {
+        "fg_color": [
+            240,
+            128,
+            128
+        ],
+        "pattern": "^(#|//).*(error|ERROR|Error|CRITICAL).+$",
+        "bg_color": [],
+        "bold": 0,
+        "italic": 0,
+        "font_name": "Courier New"
     }
 }

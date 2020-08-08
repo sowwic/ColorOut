@@ -17,19 +17,19 @@ class HighlighRule:
         self.form.setForeground(QtGui.QColor(*fg_color))
         if bg_color:
             self.form.setBackground(QtGui.QColor(*bg_color))
-        # !Setting font cause constant not scalable fontsize
-        self.font = QtGui.QFont(font_name)
+        # !Setting font results in highlighted text no resizing
+        # self.font = QtGui.QFont(font_name)
+        # self.form.setFont(self.font)
         # self.font.setBold(bold)
         # self.font.setItalic(italic)
-        # self.form.setFont(self.font)
 
     @classmethod
     def from_dict(cls, rule_dict):
         new_rule = HighlighRule(rule_dict.get("fg_color", [0, 0, 0]),
                                 rule_dict.get("pattern", ""),
                                 rule_dict.get("bg_color", None),
-                                rule_dict.get("bold", False),
-                                rule_dict.get("italic", False),
+                                rule_dict.get("bold", 0),
+                                rule_dict.get("italic", 0),
                                 rule_dict.get("font_name", "Courier New"))
         return new_rule
 
@@ -109,13 +109,6 @@ class HighlightManager:
             except (AttributeError, AssertionError):
                 break
 
-        # Define rules
-        # infoRule = HighlighRule(fg_color=(135, 206, 250), pattern=r"^(#|//).*(info|INFO|NOTE).+$")
-        # debugRule = HighlighRule(fg_color=(135, 206, 250), pattern=r"^(#|//).*(debug|DEBUG).+$")
-        # warningRule = HighlighRule(fg_color=(255, 175, 44), pattern=r"^(#|//).*(warning|WARNING|Warning).+$")
-        # errorRule = HighlighRule(fg_color=(240, 128, 128), pattern=r"^(#|//).*(error|ERROR|Error|CRITICAL).+$")
-
-        # stdOut = StdOutSyntax(seReporter, [infoRule, debugRule, warningRule, errorRule])
         stdOut = StdOutSyntax(seReporter, cls.load_rules())
         Logger.debug("Highlighter applied")
         return stdOut
