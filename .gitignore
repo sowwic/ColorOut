@@ -125,3 +125,4 @@ dmypy.json
 .pyre/
 .vscode/settings.json
 .DS_Store
+ColorOut/rules/user.json

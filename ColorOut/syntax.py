@@ -1,21 +1,37 @@
-from ColorOut import utils
+import os
+import shutil
+import json
+import pymel.core as pm
+import pymel.api as pma
 from PySide2 import QtGui
 from PySide2 import QtCore
 from PySide2 import QtWidgets
+from shiboken2 import wrapInstance
+from ColorOut.loggingFn import Logger
 
 
 class HighlighRule:
-    def __init__(self, fgColor, pattern="", bgColor=None, bold=False, italic=False, fontName="Courier New"):
+    def __init__(self, fg_color, pattern="", bg_color=None, bold=False, italic=False, font_name="Courier New"):
         self.pattern = QtCore.QRegExp(pattern)
         self.form = QtGui.QTextCharFormat()
-        self.form.setForeground(QtGui.QColor(*fgColor))
-        if bgColor:
-            self.form.setBackground(QtGui.QColor(*bgColor))
+        self.form.setForeground(QtGui.QColor(*fg_color))
+        if bg_color:
+            self.form.setBackground(QtGui.QColor(*bg_color))
         # !Setting font cause constant not scalable fontsize
-        # self.font = QtGui.QFont(fontName)
+        self.font = QtGui.QFont(font_name)
         # self.font.setBold(bold)
         # self.font.setItalic(italic)
         # self.form.setFont(self.font)
+
+    @classmethod
+    def from_dict(cls, rule_dict):
+        new_rule = HighlighRule(rule_dict.get("fg_color", [0, 0, 0]),
+                                rule_dict.get("pattern", ""),
+                                rule_dict.get("bg_color", None),
+                                rule_dict.get("bold", False),
+                                rule_dict.get("italic", False),
+                                rule_dict.get("font_name", "Courier New"))
+        return new_rule
 
 
 class StdOutSyntax(QtGui.QSyntaxHighlighter):
@@ -36,41 +52,92 @@ class StdOutSyntax(QtGui.QSyntaxHighlighter):
             self.setCurrentBlockState(0)
 
 
-def applyHighlight():
-    i = 1
-    while i:
-        try:
-            seReporter = utils.getScriptEditorReporter()  # type:QtWidgets.QTextEdit
-            # Remove the old syntax and raise exception to get out of the loop
-            assert seReporter.findChild(QtGui.QSyntaxHighlighter).deleteLater()
-        except TypeError:
-            # If no widget found - increment
-            i += 1
-        except (AttributeError, AssertionError):
-            break
+class HighlightManager:
 
-    # Define rules
-    infoRule = HighlighRule(fgColor=(135, 206, 250), pattern=r"^(#|//).*(info|INFO|NOTE).+$")
-    debugRule = HighlighRule(fgColor=(135, 206, 250), pattern=r"^(#|//).*(debug|DEBUG).+$")
-    warningRule = HighlighRule(fgColor=(255, 175, 44), pattern=r"^(#|//).*(warning|WARNING|Warning).+$")
-    errorRule = HighlighRule(fgColor=(240, 128, 128), pattern=r"^(#|//).*(error|ERROR|Error|CRITICAL).+$")
+    DEFAULT_RULES = os.path.join(pm.moduleInfo(mn="ColorOut", p=1), "ColorOut", "rules", "default.json")  # type:str
+    USER_RULES = os.path.join(pm.moduleInfo(mn="ColorOut", p=1), "ColorOut", "rules", "user.json")  # type:str
 
-    stdOut = StdOutSyntax(seReporter, [infoRule, debugRule, warningRule, errorRule])
+    @classmethod
+    def get_script_editor_reporter(cls):
+        """Gets current reporter widget
 
-    return stdOut
+        :return: Reporter as widget
+        :rtype: QtWidgets.QTextEdit
+        """
+        reporter = None
+        widgetIndex = 1
+        while widgetIndex:
+            try:
+                reporter = wrapInstance(long(pma.MQtUtil.findControl("cmdScrollFieldReporter{0}".format(widgetIndex))), QtWidgets.QTextEdit)
+                break
+            except TypeError:
+                widgetIndex += 1
 
+        return reporter
 
-def on_focus_changed(old_widget, new_widget):
-    if not new_widget:
-        return
-    if "cmdScrollFieldExecuter" in new_widget.objectName():
-        applyHighlight()
+    @classmethod
+    def load_rules(cls):
+        if not os.path.isfile(cls.USER_RULES):
+            shutil.copy2(cls.DEFAULT_RULES, cls.USER_RULES)
 
+        # Import rules
+        rules = None
+        with open(cls.USER_RULES, "r") as json_file:
+            rules = json.load(json_file)
+        if not rules:
+            Logger.error("User rules are empty, using defaults")
+            with open(cls.DEFAULT_RULES, "r") as json_file:
+                rules = json.load(json_file)
 
-def create_connection():
-    app = QtWidgets.QApplication.instance()
-    app.focusChanged.connect(on_focus_changed)
+        rule_objects = []
+        for r in rules.keys():
+            rule_objects.append(HighlighRule.from_dict(rules[r]))
+
+        return rule_objects
+
+    @classmethod
+    def applyHighlight(cls):
+        i = 1
+        while i:
+            try:
+                seReporter = cls.get_script_editor_reporter()  # type:QtWidgets.QTextEdit
+                # Remove the old syntax and raise exception to get out of the loop
+                assert seReporter.findChild(QtGui.QSyntaxHighlighter).deleteLater()
+            except TypeError:
+                # If no widget found - increment
+                i += 1
+            except (AttributeError, AssertionError):
+                break
+
+        # Define rules
+        # infoRule = HighlighRule(fg_color=(135, 206, 250), pattern=r"^(#|//).*(info|INFO|NOTE).+$")
+        # debugRule = HighlighRule(fg_color=(135, 206, 250), pattern=r"^(#|//).*(debug|DEBUG).+$")
+        # warningRule = HighlighRule(fg_color=(255, 175, 44), pattern=r"^(#|//).*(warning|WARNING|Warning).+$")
+        # errorRule = HighlighRule(fg_color=(240, 128, 128), pattern=r"^(#|//).*(error|ERROR|Error|CRITICAL).+$")
+
+        # stdOut = StdOutSyntax(seReporter, [infoRule, debugRule, warningRule, errorRule])
+        stdOut = StdOutSyntax(seReporter, cls.load_rules())
+        Logger.debug("Highlighter applied")
+        return stdOut
+
+    @classmethod
+    def on_focus_changed(cls, old_widget, new_widget):
+        if not new_widget:
+            return
+        if "cmdScrollFieldExecuter" in new_widget.objectName():
+            cls.applyHighlight()
+
+    @classmethod
+    def create_connection(cls):
+        app = QtWidgets.QApplication.instance()  # type: QtWidgets.QApplication
+        app.focusChanged.connect(cls.on_focus_changed)
+
+    @classmethod
+    def remove_connection(cls):
+        QtWidgets.QApplication.instance()  # type: QtWidgets.QApplication
+        Logger.debug("Removed connection")
 
 
 if __name__ == "__main__":
-    create_connection()
+    HighlightManager.remove_connection()
+    HighlightManager.create_connection()

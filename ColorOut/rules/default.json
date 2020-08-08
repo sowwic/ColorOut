@@ -1,0 +1,14 @@
+{
+    "info": {
+        "fg_color": [
+            135,
+            206,
+            250
+        ],
+        "pattern": "^(#|//).*(info|INFO|NOTE).+$",
+        "bg_color": [],
+        "bold": 0,
+        "italic": 0,
+        "font_name": "Courier New"
+    }
+}
