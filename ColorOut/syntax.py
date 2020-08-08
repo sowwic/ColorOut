@@ -60,5 +60,17 @@ def applyHighlight():
     return stdOut
 
 
+def on_focus_changed(old_widget, new_widget):
+    if not new_widget:
+        return
+    if "cmdScrollFieldExecuter" in new_widget.objectName():
+        applyHighlight()
+
+
+def create_connection():
+    app = QtWidgets.QApplication.instance()
+    app.focusChanged.connect(on_focus_changed)
+
+
 if __name__ == "__main__":
-    applyHighlight()
+    create_connection()

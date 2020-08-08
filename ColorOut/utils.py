@@ -32,20 +32,5 @@ def getScriptEditorReporter():
     return reporter
 
 
-def test_callback(*args):
-    print "called"
-
-
-def script_editor_window():
-    se_object = pma.MQtUtil.findWindow("scriptEditorPanel1Window")
-    if not se_object:
-        return
-    # script_editor = wrapInstance(long(pma.MQtUtil.findWindow("scriptEditorPanel1Window")), QtWidgets.QWidget)  # type:QtWidgets.QWidget
-    # main_window = wrapInstance(long(pma.MQtUtil.mainWindow()), QtWidgets.QMainWindow)  # type:QtWidgets.QMainWindow
-    # print "Script editor: {0}".format(script_editor)
-    # for child in main_window.children():
-    #     print child
-
-
 if __name__ == "__main__":
-    print getScriptEditorPanel()
+    pass
