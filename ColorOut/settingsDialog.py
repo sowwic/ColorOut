@@ -1,6 +1,7 @@
 import os
 import json
 from PySide2 import QtCore
+from PySide2 import QtGui
 from PySide2 import QtWidgets
 import pymel.core as pm
 import pymel.api as pma
@@ -61,9 +62,10 @@ class Dialog(QtWidgets.QDialog):
         self.rule_grp = QtWidgets.QGroupBox("Rule")
         self.rule_name = QtWidgets.QLineEdit()
         self.rule_pattern = QtWidgets.QLineEdit()
-        self.rule_fg_color_button = QtWidgets.QPushButton()
-        self.rule_bg_color_button = QtWidgets.QPushButton()
+        self.rule_fg_color = ColorButton()
+        self.rule_bg_color = ColorButton()
         self.rule_bg_color_checkbox = QtWidgets.QCheckBox("Background color")
+        self.save_button = QtWidgets.QPushButton("Save")
 
         self.sections_splitter = QtWidgets.QSplitter()
         self.sections_splitter.addWidget(self.all_rules)
@@ -72,14 +74,17 @@ class Dialog(QtWidgets.QDialog):
     def create_layouts(self):
         self.rule_color_layout = QtWidgets.QHBoxLayout()
         self.rule_color_layout.addWidget(QtWidgets.QLabel("Foregound color:"))
-        self.rule_color_layout.addWidget(self.rule_fg_color_button)
+        self.rule_color_layout.addWidget(self.rule_fg_color)
+        self.rule_color_layout.addStretch()
         self.rule_color_layout.addWidget(self.rule_bg_color_checkbox)
-        self.rule_color_layout.addWidget(self.rule_bg_color_button)
+        self.rule_color_layout.addWidget(self.rule_bg_color)
+        self.rule_color_layout.addStretch()
 
         self.main_rule_layout = QtWidgets.QFormLayout()
         self.main_rule_layout.addRow("Name:", self.rule_name)
         self.main_rule_layout.addRow("Pattern: ", self.rule_pattern)
         self.main_rule_layout.addRow(self.rule_color_layout)
+        self.main_rule_layout.addRow(self.save_button)
 
         self.rule_grp.setLayout(self.main_rule_layout)
 
@@ -89,9 +94,9 @@ class Dialog(QtWidgets.QDialog):
 
     def create_connections(self):
         self.all_rules.list.currentItemChanged.connect(self.update_rule_info)
-        self.rule_bg_color_checkbox.toggled.connect(self.rule_bg_color_button.setEnabled)
-        self.rule_fg_color_button.clicked.connect(self.select_fg_color)
-        self.rule_bg_color_button.clicked.connect(self.select_bg_color)
+        self.all_rules.add_button.clicked.connect(self.add_rule)
+        self.rule_bg_color_checkbox.toggled.connect(self.rule_bg_color.setEnabled)
+        self.save_button.clicked.connect(self.save_changes)
 
     def showEvent(self, event):
         super(Dialog, self).showEvent(event)
@@ -108,11 +113,13 @@ class Dialog(QtWidgets.QDialog):
     def update_rule_info(self, item):
         rule_name = item.data(0)
         rule_data = item.data(QtCore.Qt.UserRole)
+        Logger.debug(rule_data.get("fg_color"))
         self.rule_name.setText(rule_name)
         self.rule_pattern.setText(rule_data.get("pattern"))
-        self.rule_fg_color_button.setProperty("color", rule_data.get("fg_color"))
-        self.rule_bg_color_button.setProperty("color", rule_data.get("bg_color"))
+        self.rule_fg_color.set_color(rule_data.get("fg_color"))
+        self.rule_bg_color.set_color(rule_data.get("bg_color"))
         self.rule_bg_color_checkbox.setChecked(bool(rule_data.get("bg_color", False)))
+        self.rule_bg_color.setEnabled(self.rule_bg_color_checkbox.isChecked())
 
     @QtCore.Slot()
     def update_rule_list(self):
@@ -126,15 +133,42 @@ class Dialog(QtWidgets.QDialog):
             item.setData(QtCore.Qt.UserRole, rules_dict[rule])
             self.all_rules.list.addItem(item)
 
-    @QtCore.Slot()
-    def select_fg_color(self):
-        starting_color = self.rule_fg_color_button.property("color")
-        Logger.debug("Staring fg color: {0}".format(starting_color))
+    def serialize_info(self):
+        fg_color = self.rule_fg_color.get_color()
+        fg_color = [fg_color.red(), fg_color.green(), fg_color.blue()]
+        if self.rule_bg_color_checkbox.isChecked():
+            bg_color = self.rule_bg_color.get_color()
+            bg_color = [bg_color.red(), bg_color.green(), bg_color.blue()]
+        else:
+            bg_color = []
+
+        rule_dict = {self.rule_name.text(): {
+            "pattern": self.rule_pattern.text(),
+            "fg_color": fg_color,
+            "bg_color": bg_color}
+        }
+        return rule_dict
 
     @QtCore.Slot()
-    def select_bg_color(self):
-        starting_color = self.rule_bg_color_button.property("color")
-        Logger.debug("Staring bg color: {0}".format(starting_color))
+    def save_changes(self):
+        current_item = self.all_rules.list.findItems(self.rule_name.text(), QtCore.Qt.MatchExactly)
+        if current_item:
+            print current_item
+            # Logger.debug("Updating {}".format(current_item.data(0)))
+        else:
+            new_rule_item = QtWidgets.QListWidgetItem(self.rule_name.text())
+            new_rule_item.setData(QtCore.Qt.UserRole, self.serialize_info())
+            Logger.debug(new_rule_item.data(QtCore.Qt.UserRole))
+            self.all_rules.list.addItem(new_rule_item)
+            self.all_rules.list.setCurrentItem(new_rule_item)
+
+    @QtCore.Slot()
+    def add_rule(self):
+        self.rule_name.setText("")
+        self.rule_pattern.setText("")
+        self.rule_fg_color.set_color(QtCore.Qt.white)
+        self.rule_bg_color.set_color(QtCore.Qt.black)
+        self.rule_bg_color_checkbox.setChecked(0)
 
 
 class AllRulesWidget(QtWidgets.QWidget):
@@ -160,8 +194,45 @@ class AllRulesWidget(QtWidgets.QWidget):
         self.setLayout(self.main_layout)
 
 
-class ColorButton(QtWidgets.QPushButton):
-    pass
+class ColorButton(QtWidgets.QLabel):
+    def __init__(self, parent=None, color=[1, 1, 1]):
+        super(ColorButton, self).__init__(parent)
+
+        self._color = QtGui.QColor()  # Invalid color
+
+        self.set_size(25, 25)
+        self.set_color(color)
+
+    def set_size(self, width, height):
+        self.setFixedSize(width, height)
+
+    def set_color(self, color):
+        Logger.debug("Color: {0}".format(color))
+        if isinstance(color, list):
+            if not color:
+                color = [1, 1, 1]
+            color = QtGui.QColor.fromRgb(*color)
+
+        color = QtGui.QColor(color)
+        if self._color == color:
+            return
+
+        self._color = color
+        pixmap = QtGui.QPixmap(self.size())
+        pixmap.fill(self._color)
+        self.setPixmap(pixmap)
+
+    def get_color(self):
+        return self._color
+
+    def select_color(self):
+        color = QtWidgets.QColorDialog.getColor(self.get_color(), self, options=QtWidgets.QColorDialog.DontUseNativeDialog)
+        if color.isValid():
+            self.set_color(color)
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.select_color()
 
 
 if __name__ == "__main__":
