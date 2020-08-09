@@ -41,18 +41,19 @@ class StdOutSyntax(QtGui.QSyntaxHighlighter):
         self.rules = rules
 
     def highlightBlock(self, text):
-        try:
-            for rule in self.rules:
-                pattern = rule.pattern
-                index = pattern.indexIn(text)
-                while index >= 0:
-                    matchLen = pattern.matchedLength()
-                    self.setFormat(index, matchLen, rule.form)
-                    index = pattern.indexIn(text, index + matchLen)
+        if not hasattr(self, "rules"):
+            # ? Sometimes throws Attribute error
+            Logger.debug("No rulese attr found")
+            return
+        for rule in self.rules:
+            pattern = rule.pattern
+            index = pattern.indexIn(text)
+            while index >= 0:
+                matchLen = pattern.matchedLength()
+                self.setFormat(index, matchLen, rule.form)
+                index = pattern.indexIn(text, index + matchLen)
 
-                self.setCurrentBlockState(0)
-        except Exception:
-            Logger.exception("Highlighter error")
+            self.setCurrentBlockState(0)
 
 
 class HighlightManager:
@@ -77,6 +78,10 @@ class HighlightManager:
                 widgetIndex += 1
 
         return reporter
+
+    @classmethod
+    def reset_default_rules(cls):
+        shutil.copy2(cls.DEFAULT_RULES, cls.USER_RULES)
 
     @classmethod
     def load_rules(cls):

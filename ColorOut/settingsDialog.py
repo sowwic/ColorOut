@@ -6,6 +6,8 @@ from PySide2 import QtWidgets
 import pymel.core as pm
 import pymel.api as pma
 from shiboken2 import wrapInstance
+from ColorOut import __author__
+from ColorOut import __version__
 from ColorOut.loggingFn import Logger
 from ColorOut import syntax
 
@@ -42,6 +44,7 @@ class Dialog(QtWidgets.QDialog):
             self.setWindowFlags(QtCore.Qt.Tool)
 
         self.setWindowTitle(self.WINDOW_TITLE)
+        self.setWindowIcon(QtGui.QIcon(":colorProfile.svg"))
         self.setMinimumSize(400, 300)
 
         # UI setup
@@ -55,10 +58,18 @@ class Dialog(QtWidgets.QDialog):
         self.create_connections()
 
     def create_actions(self):
-        pass
+        self.reset_defaults_action = QtWidgets.QAction("Reset default rules", self)
+        self.about_action = QtWidgets.QAction("About", self)
 
     def create_menu_bar(self):
+        self.edit_menu = QtWidgets.QMenu("&Edit")
+        self.edit_menu.addAction(self.reset_defaults_action)
+        self.help_menu = QtWidgets.QMenu("Help")
+        self.help_menu.addAction(self.about_action)
+
         self.menubar = QtWidgets.QMenuBar()
+        self.menubar.addMenu(self.edit_menu)
+        self.menubar.addMenu(self.help_menu)
 
     def create_widgets(self):
         self.all_rules = AllRulesWidget()
@@ -101,9 +112,14 @@ class Dialog(QtWidgets.QDialog):
         self.main_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addWidget(self.sections_splitter)
         self.main_layout.addLayout(self.buttons_layout)
+        self.main_layout.setMenuBar(self.menubar)
         self.setLayout(self.main_layout)
 
     def create_connections(self):
+        # Menubar
+        self.reset_defaults_action.triggered.connect(self.reset_to_defaults)
+        self.about_action.triggered.connect(self.about_window)
+        # Buttons
         self.all_rules.list.currentItemChanged.connect(self.update_rule_info)
         self.all_rules.add_button.clicked.connect(self.add_rule)
         self.all_rules.delete_button.clicked.connect(self.delete_rule)
@@ -147,6 +163,17 @@ class Dialog(QtWidgets.QDialog):
             "fg_color": fg_color,
             "bg_color": bg_color}
         return rule_dict
+
+    @QtCore.Slot()
+    def reset_to_defaults(self):
+        syntax.HighlightManager.reset_default_rules()
+        self.load_rules()
+        self.update_rule_list()
+        self.all_rules.list.setCurrentRow(0)
+
+    @QtCore.Slot()
+    def about_window(self):
+        QtWidgets.QMessageBox.about(self, "ColorOut", "Author: {0}\nVersion: {1}".format(__author__, __version__))
 
     @QtCore.Slot()
     def toggle_save_button(self, state):
@@ -207,6 +234,8 @@ class Dialog(QtWidgets.QDialog):
             self.rules_dict.pop(self.all_rules.list.currentItem().data(0))
             self.update_rule_list()
             self.all_rules.list.setCurrentRow(0)
+        else:
+            QtWidgets.QMessageBox.warning(self, "Rule deletion", "At least 1 rule is required")
 
     @ QtCore.Slot()
     def save_rules_and_close(self):

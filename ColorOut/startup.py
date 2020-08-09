@@ -4,7 +4,7 @@ from ColorOut import syntax
 from ColorOut import menuItem
 from ColorOut.loggingFn import Logger
 
-Logger.set_level(10)
+Logger.set_level(20)
 
 
 def run():
