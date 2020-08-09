@@ -82,7 +82,7 @@ class Dialog(QtWidgets.QDialog):
         self.save_button = QtWidgets.QPushButton("Save")
         self.save_button.hide()
         self.confirm_button = QtWidgets.QPushButton("Confirm")
-        self.cancel_button = QtWidgets.QPushButton("Cancel")
+        self.close_button = QtWidgets.QPushButton("Close")
 
         self.sections_splitter = QtWidgets.QSplitter()
         self.sections_splitter.addWidget(self.all_rules)
@@ -107,7 +107,7 @@ class Dialog(QtWidgets.QDialog):
         self.buttons_layout = QtWidgets.QHBoxLayout()
         self.buttons_layout.addStretch()
         self.buttons_layout.addWidget(self.confirm_button)
-        self.buttons_layout.addWidget(self.cancel_button)
+        self.buttons_layout.addWidget(self.close_button)
 
         self.main_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addWidget(self.sections_splitter)
@@ -125,8 +125,8 @@ class Dialog(QtWidgets.QDialog):
         self.all_rules.delete_button.clicked.connect(self.delete_rule)
         self.rule_bg_color_checkbox.toggled.connect(self.rule_bg_color.setEnabled)
         self.save_button.clicked.connect(self.save_changes)
-        self.confirm_button.clicked.connect(self.save_rules_and_close)
-        self.cancel_button.clicked.connect(self.hide)
+        self.confirm_button.clicked.connect(self.apply_rules)
+        self.close_button.clicked.connect(self.hide)
         # Save button updates
         self.rule_name.textEdited.connect(self.toggle_save_button)
         self.rule_pattern.textEdited.connect(self.toggle_save_button)
@@ -238,7 +238,7 @@ class Dialog(QtWidgets.QDialog):
             QtWidgets.QMessageBox.warning(self, "Rule deletion", "At least 1 rule is required")
 
     @ QtCore.Slot()
-    def save_rules_and_close(self):
+    def apply_rules(self):
         Logger.debug("Writing rules dict: {0}".format(self.rules_dict))
         with open(self.USER_RULES, "w") as json_file:
             json.dump(self.rules_dict, json_file, indent=4)
@@ -248,7 +248,6 @@ class Dialog(QtWidgets.QDialog):
             syntax.HighlightManager.create_connection()
         except BaseException:
             Logger.exception("Failed to apply new rules")
-        self.hide()
 
 
 class AllRulesWidget(QtWidgets.QWidget):
