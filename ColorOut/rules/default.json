@@ -13,9 +13,9 @@
     },
     "debug": {
         "fg_color": [
-            135,
-            206,
-            250
+            85,
+            255,
+            127
         ],
         "pattern": "^(#|//).*(debug|DEBUG).+$",
         "bg_color": [],

@@ -7,6 +7,7 @@ import pymel.core as pm
 import pymel.api as pma
 from shiboken2 import wrapInstance
 from ColorOut.loggingFn import Logger
+from ColorOut import syntax
 
 
 def mayaMainWindow():
@@ -109,70 +110,28 @@ class Dialog(QtWidgets.QDialog):
         self.rule_bg_color_checkbox.toggled.connect(self.rule_bg_color.setEnabled)
         self.save_button.clicked.connect(self.save_changes)
         self.confirm_button.clicked.connect(self.save_rules_and_close)
-        self.cancel_button.clicked.connect(self.close)
+        self.cancel_button.clicked.connect(self.hide)
+        # Save button updates
         self.rule_name.textEdited.connect(self.toggle_save_button)
         self.rule_pattern.textEdited.connect(self.toggle_save_button)
         self.rule_bg_color_checkbox.stateChanged.connect(self.toggle_save_button)
+        self.rule_fg_color.color_changed.connect(self.toggle_save_button)
+        self.rule_bg_color.color_changed.connect(self.toggle_save_button)
 
     def showEvent(self, event):
         super(Dialog, self).showEvent(event)
         self.update_rule_list()
         if self.geometry:
-            self.setGeometry(self.geometry)
+            self.restoreGeometry(self.geometry)
 
     def hideEvent(self, event):
         if isinstance(self, Dialog):
             super(Dialog, self).hideEvent(event)
             self.geometry = self.saveGeometry()
 
-    def toggle_save_button(self, state):
-        if isinstance(state, basestring):
-            state = bool(state)
-        elif isinstance(state, int):
-            state = True
-
-        Logger.debug(state)
-        self.save_button.setVisible(state)
-
-    @QtCore.Slot(QtWidgets.QWidgetItem)
-    def update_rule_info(self, item):
-        if not item:
-            return
-        rule_name = item.data(0)
-        rule_data = item.data(QtCore.Qt.UserRole)
-        Logger.debug(rule_data.get("fg_color"))
-        self.rule_name.setText(rule_name)
-        self.rule_pattern.setText(rule_data.get("pattern"))
-        self.rule_fg_color.set_color(rule_data.get("fg_color"))
-        self.rule_bg_color.set_color(rule_data.get("bg_color"))
-        self.rule_bg_color_checkbox.setChecked(bool(rule_data.get("bg_color", False)))
-        self.rule_bg_color.setEnabled(self.rule_bg_color_checkbox.isChecked())
-        self.save_button.setVisible(0)
-
     def load_rules(self):
         with open(self.USER_RULES, "r") as json_file:
             self.rules_dict = json.load(json_file)
-
-    @QtCore.Slot()
-    def update_rule_list(self):
-        self.all_rules.list.clear()
-        for rule in self.rules_dict.keys():
-            item = QtWidgets.QListWidgetItem(rule)
-            item.setData(QtCore.Qt.UserRole, self.rules_dict[rule])
-            self.all_rules.list.addItem(item)
-
-    @QtCore.Slot()
-    def save_changes(self):
-        check_expression = QtCore.QRegExp(self.rule_pattern.text())
-        if not check_expression.isValid():
-            error_message = QtWidgets.QErrorMessage(self)
-            error_message.showMessage("Invalid regular expression: {0}".format(self.rule_pattern.text()))
-            Logger.error("Invalid regular expression: {0}".format(self.rule_pattern.text()))
-            return
-
-        new_info_dict = {self.rule_name.text(): self.serialize_info()}
-        self.rules_dict.update(new_info_dict)
-        self.update_rule_list()
 
     def serialize_info(self):
         fg_color = self.rule_fg_color.get_color()
@@ -188,6 +147,51 @@ class Dialog(QtWidgets.QDialog):
             "fg_color": fg_color,
             "bg_color": bg_color}
         return rule_dict
+
+    @QtCore.Slot()
+    def toggle_save_button(self, state):
+        if isinstance(state, basestring):
+            state = bool(state)
+        else:
+            state = True
+
+        self.save_button.setVisible(state)
+
+    @QtCore.Slot(QtWidgets.QWidgetItem)
+    def update_rule_info(self, item):
+        if not item:
+            return
+        rule_name = item.data(0)
+        rule_data = item.data(QtCore.Qt.UserRole)
+        self.rule_name.setText(rule_name)
+        self.rule_pattern.setText(rule_data.get("pattern"))
+        self.rule_fg_color.set_color(rule_data.get("fg_color"))
+        self.rule_bg_color.set_color(rule_data.get("bg_color"))
+        self.rule_bg_color_checkbox.setChecked(bool(rule_data.get("bg_color", False)))
+        self.rule_bg_color.setEnabled(self.rule_bg_color_checkbox.isChecked())
+        self.save_button.setVisible(0)
+
+    @QtCore.Slot()
+    def update_rule_list(self):
+        self.all_rules.list.clear()
+        for rule in self.rules_dict.keys():
+            item = QtWidgets.QListWidgetItem(rule)
+            item.setData(QtCore.Qt.UserRole, self.rules_dict[rule])
+            self.all_rules.list.addItem(item)
+        self.save_button.setVisible(0)
+
+    @QtCore.Slot()
+    def save_changes(self):
+        check_expression = QtCore.QRegExp(self.rule_pattern.text())
+        if not check_expression.isValid():
+            error_message = QtWidgets.QErrorMessage(self)
+            error_message.showMessage("Invalid regular expression: {0}".format(self.rule_pattern.text()))
+            Logger.error("Invalid regular expression: {0}".format(self.rule_pattern.text()))
+            return
+
+        new_info_dict = {self.rule_name.text(): self.serialize_info()}
+        self.rules_dict.update(new_info_dict)
+        self.update_rule_list()
 
     @ QtCore.Slot()
     def add_rule(self):
@@ -206,10 +210,16 @@ class Dialog(QtWidgets.QDialog):
 
     @ QtCore.Slot()
     def save_rules_and_close(self):
+        Logger.debug("Writing rules dict: {0}".format(self.rules_dict))
         with open(self.USER_RULES, "w") as json_file:
-            json.dump(self.rules_dict, json_file, indent=4, separators=(",", ":"))
+            json.dump(self.rules_dict, json_file, indent=4)
 
-        self.close()
+        try:
+            syntax.HighlightManager.remove_connection()
+            syntax.HighlightManager.create_connection()
+        except BaseException:
+            Logger.exception("Failed to apply new rules")
+        self.hide()
 
 
 class AllRulesWidget(QtWidgets.QWidget):
@@ -236,6 +246,9 @@ class AllRulesWidget(QtWidgets.QWidget):
 
 
 class ColorButton(QtWidgets.QLabel):
+
+    color_changed = QtCore.Signal(QtGui.QColor)
+
     def __init__(self, parent=None, color=[1, 1, 1]):
         super(ColorButton, self).__init__(parent)
 
@@ -248,7 +261,7 @@ class ColorButton(QtWidgets.QLabel):
         self.setFixedSize(width, height)
 
     def set_color(self, color):
-        Logger.debug("Color: {0}".format(color))
+        Logger.debug("Set color: {0}".format(color))
         if isinstance(color, list):
             if not color:
                 color = [1, 1, 1]
@@ -262,6 +275,7 @@ class ColorButton(QtWidgets.QLabel):
         pixmap = QtGui.QPixmap(self.size())
         pixmap.fill(self._color)
         self.setPixmap(pixmap)
+        self.color_changed.emit(self._color)
 
     def get_color(self):
         return self._color

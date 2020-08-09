@@ -41,15 +41,18 @@ class StdOutSyntax(QtGui.QSyntaxHighlighter):
         self.rules = rules
 
     def highlightBlock(self, text):
-        for rule in self.rules:
-            pattern = rule.pattern
-            index = pattern.indexIn(text)
-            while index >= 0:
-                matchLen = pattern.matchedLength()
-                self.setFormat(index, matchLen, rule.form)
-                index = pattern.indexIn(text, index + matchLen)
+        try:
+            for rule in self.rules:
+                pattern = rule.pattern
+                index = pattern.indexIn(text)
+                while index >= 0:
+                    matchLen = pattern.matchedLength()
+                    self.setFormat(index, matchLen, rule.form)
+                    index = pattern.indexIn(text, index + matchLen)
 
-            self.setCurrentBlockState(0)
+                self.setCurrentBlockState(0)
+        except Exception:
+            Logger.exception("Highlighter error")
 
 
 class HighlightManager:
@@ -127,7 +130,12 @@ class HighlightManager:
 
     @classmethod
     def remove_connection(cls):
-        QtWidgets.QApplication.instance()  # type: QtWidgets.QApplication
+        app = QtWidgets.QApplication.instance()  # type: QtWidgets.QApplication
+        try:
+            app.focusChanged.disconnect(cls.on_focus_changed)
+        except RuntimeError:
+            pass
+
         Logger.debug("Removed connection")
 
 

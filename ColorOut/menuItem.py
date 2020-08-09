@@ -1,5 +1,6 @@
 import pymel.core as pm
 from ColorOut import settingsDialog
+from ColorOut.loggingFn import Logger
 
 
 class ColorOutItem:
@@ -15,13 +16,24 @@ class ColorOutItem:
     @classmethod
     def create(cls):
         cls.delete_old()
-        menu_item = pm.menuItem(cls.ITEM_OBJECT,
-                                l=cls.ITEM_LABEL,
-                                parent=cls.WINDOW_MENU,
-                                i="colorProfile.svg",
-                                ia="wmNodeEditor",
-                                c=settingsDialog.Dialog.display)
+        try:
+            pm.menuItem(cls.ITEM_OBJECT,
+                        l=cls.ITEM_LABEL,
+                        parent=cls.WINDOW_MENU,
+                        i="colorProfile.svg",
+                        ia="wmNodeEditor",
+                        c=settingsDialog.Dialog.display)
+            Logger.info("Created menuItem: Windows>ColorOut")
+        except Exception:
+            Logger.exception("Error when creating menu item")
+
+    @classmethod
+    def save_add_scriptJob(cls):
+        create_script = "from ColorOut import menuItem\nmenuItem.ColorOutItem.create()"
+        # ? TODO:Find better event to connect to
+        pm.scriptJob(e=["SceneOpened", create_script], ro=1)
+        Logger.debug("Safe add scriptJob added")
 
 
 if __name__ == "__main__":
-    ColorOutItem.create()
+    ColorOutItem.save_add_scriptJob()
