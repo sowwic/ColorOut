@@ -44,6 +44,8 @@ class Dialog(QtWidgets.QDialog):
         self.setMinimumSize(400, 300)
 
         # UI setup
+        self.rules_dict = {}
+        self.load_rules()
         self.geometry = None
         self.create_actions()
         self.create_menu_bar()
@@ -66,6 +68,9 @@ class Dialog(QtWidgets.QDialog):
         self.rule_bg_color = ColorButton()
         self.rule_bg_color_checkbox = QtWidgets.QCheckBox("Background color")
         self.save_button = QtWidgets.QPushButton("Save")
+        self.save_button.hide()
+        self.confirm_button = QtWidgets.QPushButton("Confirm")
+        self.cancel_button = QtWidgets.QPushButton("Cancel")
 
         self.sections_splitter = QtWidgets.QSplitter()
         self.sections_splitter.addWidget(self.all_rules)
@@ -85,18 +90,29 @@ class Dialog(QtWidgets.QDialog):
         self.main_rule_layout.addRow("Pattern: ", self.rule_pattern)
         self.main_rule_layout.addRow(self.rule_color_layout)
         self.main_rule_layout.addRow(self.save_button)
-
         self.rule_grp.setLayout(self.main_rule_layout)
+
+        self.buttons_layout = QtWidgets.QHBoxLayout()
+        self.buttons_layout.addStretch()
+        self.buttons_layout.addWidget(self.confirm_button)
+        self.buttons_layout.addWidget(self.cancel_button)
 
         self.main_layout = QtWidgets.QVBoxLayout()
         self.main_layout.addWidget(self.sections_splitter)
+        self.main_layout.addLayout(self.buttons_layout)
         self.setLayout(self.main_layout)
 
     def create_connections(self):
         self.all_rules.list.currentItemChanged.connect(self.update_rule_info)
         self.all_rules.add_button.clicked.connect(self.add_rule)
+        self.all_rules.delete_button.clicked.connect(self.delete_rule)
         self.rule_bg_color_checkbox.toggled.connect(self.rule_bg_color.setEnabled)
         self.save_button.clicked.connect(self.save_changes)
+        self.confirm_button.clicked.connect(self.save_rules_and_close)
+        self.cancel_button.clicked.connect(self.close)
+        self.rule_name.textEdited.connect(self.toggle_save_button)
+        self.rule_pattern.textEdited.connect(self.toggle_save_button)
+        self.rule_bg_color_checkbox.stateChanged.connect(self.toggle_save_button)
 
     def showEvent(self, event):
         super(Dialog, self).showEvent(event)
@@ -109,8 +125,19 @@ class Dialog(QtWidgets.QDialog):
             super(Dialog, self).hideEvent(event)
             self.geometry = self.saveGeometry()
 
+    def toggle_save_button(self, state):
+        if isinstance(state, basestring):
+            state = bool(state)
+        elif isinstance(state, int):
+            state = True
+
+        Logger.debug(state)
+        self.save_button.setVisible(state)
+
     @QtCore.Slot(QtWidgets.QWidgetItem)
     def update_rule_info(self, item):
+        if not item:
+            return
         rule_name = item.data(0)
         rule_data = item.data(QtCore.Qt.UserRole)
         Logger.debug(rule_data.get("fg_color"))
@@ -120,18 +147,32 @@ class Dialog(QtWidgets.QDialog):
         self.rule_bg_color.set_color(rule_data.get("bg_color"))
         self.rule_bg_color_checkbox.setChecked(bool(rule_data.get("bg_color", False)))
         self.rule_bg_color.setEnabled(self.rule_bg_color_checkbox.isChecked())
+        self.save_button.setVisible(0)
+
+    def load_rules(self):
+        with open(self.USER_RULES, "r") as json_file:
+            self.rules_dict = json.load(json_file)
 
     @QtCore.Slot()
     def update_rule_list(self):
         self.all_rules.list.clear()
-        rules_dict = {}
-        with open(self.USER_RULES, "r") as json_file:
-            rules_dict = json.load(json_file)
-
-        for rule in rules_dict.keys():
+        for rule in self.rules_dict.keys():
             item = QtWidgets.QListWidgetItem(rule)
-            item.setData(QtCore.Qt.UserRole, rules_dict[rule])
+            item.setData(QtCore.Qt.UserRole, self.rules_dict[rule])
             self.all_rules.list.addItem(item)
+
+    @QtCore.Slot()
+    def save_changes(self):
+        check_expression = QtCore.QRegExp(self.rule_pattern.text())
+        if not check_expression.isValid():
+            error_message = QtWidgets.QErrorMessage(self)
+            error_message.showMessage("Invalid regular expression: {0}".format(self.rule_pattern.text()))
+            Logger.error("Invalid regular expression: {0}".format(self.rule_pattern.text()))
+            return
+
+        new_info_dict = {self.rule_name.text(): self.serialize_info()}
+        self.rules_dict.update(new_info_dict)
+        self.update_rule_list()
 
     def serialize_info(self):
         fg_color = self.rule_fg_color.get_color()
@@ -142,33 +183,33 @@ class Dialog(QtWidgets.QDialog):
         else:
             bg_color = []
 
-        rule_dict = {self.rule_name.text(): {
+        rule_dict = {
             "pattern": self.rule_pattern.text(),
             "fg_color": fg_color,
             "bg_color": bg_color}
-        }
         return rule_dict
 
-    @QtCore.Slot()
-    def save_changes(self):
-        current_item = self.all_rules.list.findItems(self.rule_name.text(), QtCore.Qt.MatchExactly)
-        if current_item:
-            print current_item
-            # Logger.debug("Updating {}".format(current_item.data(0)))
-        else:
-            new_rule_item = QtWidgets.QListWidgetItem(self.rule_name.text())
-            new_rule_item.setData(QtCore.Qt.UserRole, self.serialize_info())
-            Logger.debug(new_rule_item.data(QtCore.Qt.UserRole))
-            self.all_rules.list.addItem(new_rule_item)
-            self.all_rules.list.setCurrentItem(new_rule_item)
-
-    @QtCore.Slot()
+    @ QtCore.Slot()
     def add_rule(self):
         self.rule_name.setText("")
         self.rule_pattern.setText("")
         self.rule_fg_color.set_color(QtCore.Qt.white)
         self.rule_bg_color.set_color(QtCore.Qt.black)
         self.rule_bg_color_checkbox.setChecked(0)
+
+    @ QtCore.Slot()
+    def delete_rule(self):
+        if self.all_rules.list.count() > 1:
+            self.rules_dict.pop(self.all_rules.list.currentItem().data(0))
+            self.update_rule_list()
+            self.all_rules.list.setCurrentRow(0)
+
+    @ QtCore.Slot()
+    def save_rules_and_close(self):
+        with open(self.USER_RULES, "w") as json_file:
+            json.dump(self.rules_dict, json_file, indent=4, separators=(",", ":"))
+
+        self.close()
 
 
 class AllRulesWidget(QtWidgets.QWidget):
