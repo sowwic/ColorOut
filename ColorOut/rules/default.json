@@ -1,50 +1,38 @@
 {
     "info": {
+        "pattern": ".*(info|INFO|NOTE).+$", 
         "fg_color": [
-            135,
-            206,
+            135, 
+            206, 
             250
-        ],
-        "pattern": "^(#|//).*(info|INFO|NOTE).+$",
-        "bg_color": [],
-        "bold": 0,
-        "italic": 0,
-        "font_name": "Courier New"
-    },
+        ], 
+        "bg_color": []
+    }, 
     "debug": {
+        "pattern": ".*(debug|DEBUG).+$", 
         "fg_color": [
-            85,
-            255,
+            85, 
+            255, 
             127
-        ],
-        "pattern": "^(#|//).*(debug|DEBUG).+$",
-        "bg_color": [],
-        "bold": 0,
-        "italic": 0,
-        "font_name": "Courier New"
-    },
+        ], 
+        "bg_color": []
+    }, 
     "warning": {
+        "pattern": ".*(warning|WARNING|Warning).+$", 
         "fg_color": [
-            255,
-            175,
+            255, 
+            175, 
             44
-        ],
-        "pattern": "^(#|//).*(warning|WARNING|Warning).+$",
-        "bg_color": [],
-        "bold": 0,
-        "italic": 0,
-        "font_name": "Courier New"
-    },
+        ], 
+        "bg_color": []
+    }, 
     "error": {
+        "pattern": ".*(error|ERROR|Error|CRITICAL).+$", 
         "fg_color": [
-            240,
-            128,
+            240, 
+            128, 
             128
-        ],
-        "pattern": "^(#|//).*(error|ERROR|Error|CRITICAL).+$",
-        "bg_color": [],
-        "bold": 0,
-        "italic": 0,
-        "font_name": "Courier New"
+        ], 
+        "bg_color": []
     }
 }

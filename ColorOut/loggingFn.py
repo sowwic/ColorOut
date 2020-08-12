@@ -8,11 +8,13 @@ class Logger:
 
     LOGGER_NAME = "ColorOut"
     LEVEL_DEFAULT = logging.DEBUG
+    PROPAGATE_DEFAULT = False
+    FORMAT_DEFAULT = "[{0}][%(levelname)s] %(message)s"
     _logger_obj = None  # type: logging.Logger
 
     @classmethod
     def logger_obj(cls):
-        """Returns logger object
+        """Returns logger objec
 
         :return: Logger object
         :rtype: logging.Logger
@@ -23,12 +25,11 @@ class Logger:
             else:
                 cls._logger_obj = logging.getLogger(cls.LOGGER_NAME)
                 cls._logger_obj.setLevel(cls.LEVEL_DEFAULT)
-                fmt = logging.Formatter("[{0}][%(levelname)s] %(message)s".format(cls.LOGGER_NAME), datefmt="%d-%m-%Y %H:%M:%S")
-                stream_handler = logging.StreamHandler(sys.stderr)
+                cls.set_propagate(cls.PROPAGATE_DEFAULT)
+                fmt = logging.Formatter(cls.FORMAT_DEFAULT.format(cls.LOGGER_NAME), datefmt="%d-%m-%Y %H:%M:%S")
+                stream_handler = logging.StreamHandler(sys.stdout)
                 stream_handler.setFormatter(fmt)
                 cls._logger_obj.addHandler(stream_handler)
-
-        cls._logger_obj.propagate = 0
 
         return cls._logger_obj
 
@@ -46,6 +47,11 @@ class Logger:
         if name:
             return logging.getLevelName(cls.logger_obj().level)
         return cls.logger_obj().level
+
+    @classmethod
+    def set_propagate(cls, propagate):
+        lg = cls.logger_obj()
+        lg.propagate = propagate
 
     @classmethod
     def call_info(cls, message):
